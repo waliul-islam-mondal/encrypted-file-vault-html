@@ -2,7 +2,7 @@
 <html>
 <head>
 
-<title>My secured vault</title>
+<title>My secured vault - offline</title>
 	<style>
 		*{font-family:timesnewroman,sans-serif;font-style:italic;font-size:14px;}		
 		table{border-collapse:collapse;width:100%;}
@@ -532,7 +532,7 @@
 <div id='id_right_div' style="display:inline-block;width:20%;height:100%;overflow:auto-scroll;float:right;" ondrop="drop(event)" ondragover="allowDrop(event)">
 	<label id='id_status'></label><br/>
 	Encryption key (password)<br/>
-	<input type="text" id='id_export_pwd'/><input type="button" onclick="on_export_as_html();" value="Save files"/><br/><br/>
+	<input type="text" id='id_export_pwd'/><input type="button" onclick="on_export_as_html();" value="Export html"/><br/><br/>
 	<input type="button" value="Remove current from list" onclick="on_remove_current_item();"/><br/><br/><br/>
 	<u>Add new file to list</u><br/>
 	<input type="file" onchange="on_choose_file(event);"><br/><br/>	
