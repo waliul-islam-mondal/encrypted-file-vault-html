@@ -423,14 +423,9 @@
 			s_html += '\t\tlet item_desc = ' + ss2 + '\n';
 			s_html += '\t\tlet item_body = ' + ss3 + '\n';
 			s_html += s.substr(p2);
-			s_html += '\n</body>\n</html>';
-			
-			let self_name = 'test.html';
-			try{
-				self_name = window.location.pathname.split("/").pop();
-			}catch(e){self_name = 'test.html';}
-			
-			on_force_download(s_html, self_name, 'text');
+			s_html += '\n</body>\n</html>';			
+
+			on_force_download(s_html, 'test.html', 'text');
 		}
 
 		async function on_login_click(){
