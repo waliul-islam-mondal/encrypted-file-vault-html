@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>My secured offline notebook</title>
+	<style>
+		*{font-family:timesnewroman,sans-serif;font-style:italic;font-size:14px;}		
+		table{border-collapse:collapse;width:100%;}
+		td,th{border:1px solid #dddddd;text-align:left;padding:2px;}
+		tr:nth-child(even){background-color:#dddddd;}
+	</style>
+
+	
+	<script type="text/javascript">
+		let crypt_key_rands = new Uint8Array([123, 11, 19, 43, 58, 121, 208, 203, 52, 67, 241, 101, 68, 2, 19, 29]);
+		let crypt_key = null;		
+		let crypt_iv = new Uint8Array(16);
+		
+		let last_dropped_data = null;
+		let crypt_performance_test_no = 0;
+		
+		let mrkrst = 'marker-st';
+		
+		let global_recursion_depth = 0;
+		let pwd_hash = '';
+				
+		let item_title = [];
+		let item_desc = [];
+		let item_body = [];
+		
+		let mrkren = 'marker-end';		
+				
+		function current_time_ms(){
+			return (Date.now() & 0x7FFFFFFF);
+		}		
+				
+		function str2u8arr(s){
+			if ( s == null )s = '';
+			let arr = new Uint8Array(s.length);
+			for ( var i = 0; i < s.length; i++ )arr[i] = s.charCodeAt(i);
+			return arr;
+		}
+		
+		function parse_base64(s){
+			return atob(s);
+		}
+
+		function u8arr2str(arr, s_opt = ''){
+			let apply_base64 = ( s_opt.trim().toLowerCase().indexOf('base64') >= 0 ? 1 : 0 );
+			let block_size = 99999;	// Must be multiple of 3, because 3 bytes are converted to 4 base64 bytes.
+			
+			if ( arr.length < block_size ){
+				if ( apply_base64 != 0)return btoa(String.fromCharCode.apply(null, arr));
+				return String.fromCharCode.apply(null, arr);
+			}
+			
+			let s = '';
+			for ( var p = 0; p < arr.length; p += block_size ){
+				let p2 = p + block_size;
+				if ( p2 > arr.length )p2 = arr.length;
+				if ( apply_base64 != 0 )s += btoa(String.fromCharCode.apply(null, arr.slice(p,p2)));
+				else s += String.fromCharCode.apply(null, arr.slice(p,p2));
+			}
+			return s;
+		}		
+		
+		// scmd = enc.str.ret.b64, dec.b64.ret.str or enc.u8.ret.u8, dec.u8.ret.u8
+		async function crypt_execute(scmd, buf, spwd){ 
+			scmd = scmd.trim().toLowerCase();
+			
+			if ( scmd.startsWith('enc.str') || scmd.startsWith('dec.str'))buf = str2u8arr(buf);
+			else if ( scmd.startsWith('enc.b64') || scmd.startsWith('dec.b64'))buf = str2u8arr(atob(buf));
+			
+			for ( var i = 0; i < crypt_iv.length; i++ ){
+				crypt_iv[i] = parseInt( i == spwd.length ? 48 : spwd.charCodeAt(i % spwd.length));
+			}
+						
+			if ( crypt_key == null ){
+				//let key = await crypto.subtle.generateKey({name: 'AES-GCM', length: 128}, true, ['encrypt', 'decrypt']);				
+				crypt_key = await crypto.subtle.importKey("raw", crypt_key_rands, "AES-GCM", true, ["encrypt", "decrypt"]);
+			}
+									
+			let ret_buf = null;
+			try{
+				if (scmd.startsWith('enc')){
+					ret_buf = await crypto.subtle.encrypt({name: 'AES-GCM', tagLength: 32, iv:crypt_iv}, crypt_key, buf);
+				}else{
+					ret_buf = await crypto.subtle.decrypt({name: 'AES-GCM', tagLength: 32, iv:crypt_iv}, crypt_key, buf);
+				}
+			}catch(e){return null;}
+
+			if ( ret_buf == null )return null;			
+			if (scmd.endsWith('ret.str') || scmd.endsWith('ret.b64')){
+				return u8arr2str(new Uint8Array(ret_buf), (scmd.endsWith('ret.b64') ? 'base64' : ''));
+			}
+			return new Uint8Array(ret_buf);
+		}		
+				
+		async function crypto_performance_test(){
+			let sz = 1000000;
+			let bb = new Uint8Array(sz);
+			if ( crypt_performance_test_no == 0 ){
+				for ( var i = 0; i < sz; i++ )bb[i] = parseInt(65 + i % 26);
+			}else if ( crypt_performance_test_no == 1 ){
+				for ( var i = 0; i < sz; i++ )bb[i] = parseInt(65 + Math.random() * 26);
+			}else if ( crypt_performance_test_no == 2 ){
+				for ( var i = 0; i < sz; i++ )bb[i] = parseInt(1 + Math.random() * 255);
+			}
+			
+			crypt_performance_test_no = ( crypt_performance_test_no + 1 ) % 3;
+			
+			let t11 = current_time_ms();
+			let arr_encrypted = await crypt_execute('enc.u8.ret.u8', bb, '1234');
+			let t12 = current_time_ms();
+			let arr_decrypted = await crypt_execute('dec.u8.ret.u8', arr_encrypted, '1234');
+			let t13 = current_time_ms();
+			let s_b64 = u8arr2str(arr_decrypted, 'base64');
+			let t14 = current_time_ms();
+			let s_real = parse_base64(s_b64);
+			let t15 = current_time_ms();
+			let s_log = '<br/><br/><br/><b>SYSTEM AES-GCM CRYPTOGRAPHY PERFORMANCE TEST</b><br/><br/>Data size: ' + sz + ' bytes<br/>Encryption time: ' + parseInt(t12 - t11) + ' ms<br/>Encrypted size: ' + arr_encrypted.length + ' bytes<br/>Decryption time: ' + parseInt(t13 - t12) + ' ms<br/>Decrypted size: ' + arr_decrypted.length + ' bytes<br/>Base64 conversion time: ' + parseInt(t14 - t13) + ' ms<br/>Reverse conversion time: ' + parseInt(t15 - t14) + ' ms<br/><br/><br/>Before encryption (last 1k bytes):<br/><br/>';
+			s_log += u8arr2str(bb.slice(bb.length-1000, bb.length)) + '<br/><br/><br/>Encrypted data (last 1k bytes):<br/><br/>';
+			s_log += u8arr2str(arr_encrypted.slice(arr_encrypted.length-1000, arr_encrypted.length)) + '<br/><br/><br/>Decrypted data (last 1k bytes):<br/><br/>';
+			s_log += u8arr2str(arr_decrypted.slice(arr_decrypted.length-1000, arr_decrypted.length));
+			
+			let new_item = document.createElement("text");			
+			new_item.innerHTML = s_log;			
+			new_item.setAttribute("width", "100%");
+			new_item.style.wordWrap = "break-word";
+						
+			document.getElementById('id_body_div').innerHTML = "";
+			document.getElementById('id_body_div').appendChild(new_item);
+		}		
+		
+		function allowDrop(ev) {
+			ev.preventDefault();
+		}
+	
+		function drop(ev) {
+			ev.preventDefault();
+			let fl = null;
+
+			if (ev.dataTransfer.items){
+				for (var i = 0; i < ev.dataTransfer.items.length; i++){
+					if (ev.dataTransfer.items[i].kind === 'file'){
+						fl = ev.dataTransfer.items[i].getAsFile();
+						break;
+					}
+				}
+			}else {
+				for (var i = 0; i < ev.dataTransfer.files.length; i++) {
+					fl = ev.dataTransfer.files[i];
+					break;
+				}
+			}
+
+			if ( fl == null ){
+				show_message('Error: cannot handle any of the dropped files ...');
+				return;
+			}
+			
+			let sname = fl.name;
+			if ( sname.length > 64 )sname = '...' + sname.substr(0,64);
+			document.getElementById('id_dropped_title').value = sname;
+			var reader = new FileReader();
+			reader.onload = function(event){
+				handle_dropped_file(event.target.result);
+			}
+			reader.readAsDataURL(fl);
+		}	
+		
+		function on_choose_file(ev){
+			if (!ev.target.files[0]){
+				console.log('event target empty !!!');
+				return;
+			}
+			
+			let fl = ev.target.files[0];
+			let sname = fl.name;
+			if ( sname.length > 64 )sname = '...' + sname.substr(0,64);
+			document.getElementById('id_dropped_title').value = sname;
+			var reader = new FileReader();
+			reader.onload = function(event){
+				handle_dropped_file(event.target.result);
+			}
+			reader.readAsDataURL(fl);
+		}
+		
+		function handle_dropped_file(str){
+			if ( str.length <= 0 )return;			
+			let is_uni_conv = ( document.getElementById('id_uconv').checked ? 1 : 0 );			
+			let s_header = str.substr(0, (str.length < 100 ? str.length : 100)).trim().toLowerCase();
+			
+			if ( s_header.startsWith('data:text/plain')){
+				str = (s_header.startsWith('data:text/plain;base64,') ? atob(str.substr(23)) : str.substr(16));				
+				if ( is_uni_conv )str = decodeURIComponent(escape(str));
+				document.getElementById('id_dropped_description').value = str;
+				last_dropped_data = null;
+				return;
+			}
+			
+			let new_item = null;
+			if ( s_header.startsWith('data:image/')){
+				new_item = document.createElement("img");
+				new_item.setAttribute("src", str);
+				last_dropped_data = 'image:' + str;
+			}else if ( s_header.startsWith('data:text/html;')){
+				str = (s_header.startsWith('data:text/html;base64,') ? atob(str.substr(22)) : str.substr(15));				
+				if ( is_uni_conv )str = decodeURIComponent(escape(str));
+				new_item = document.createElement("span");
+				new_item.innerHTML = str;
+				last_dropped_data = "html:" + str;
+			}else{
+				new_item = document.createElement("embed");
+				new_item.setAttribute("src",str);			
+				last_dropped_data = "embed:" + str;
+			}						
+			
+			new_item.setAttribute("width", "100%");
+			document.getElementById('id_dropped_file').innerHTML = "";
+			document.getElementById('id_dropped_file').appendChild(new_item);			
+		}
+		
+		function show_message(s){
+			document.getElementById('id_status').innerHTML = s;
+		}
+		
+		function on_list_selection_changed(){
+			let fno = document.getElementById('id_item_list').selectedIndex;
+			if ( fno <= 0 ){
+				document.getElementById('id_body_div').innerHTML = 'No item selected !!!';
+				return;
+			}
+			
+			fno--;
+			let s = '';
+			if ( item_title[fno].length > 0 )s += '<br/><u><b>' + item_title[fno] + '</b></u><br/><br/>';
+			if ( item_desc[fno] != null )s += item_desc[fno] + '<br/><br/>'
+			
+			document.getElementById('id_body_div').innerHTML = s;
+			let item_str = item_body[fno];
+			if ( item_str == null )return;
+			
+			let new_item = null;
+			if ( item_str.startsWith('image:')){
+				new_item = document.createElement("img");
+				new_item.setAttribute("src", item_str.substr(6));
+			}else if ( item_str.startsWith('text:')){
+				new_item = document.createElement("text");
+				new_item.value = item_str.substr(5);
+			}else if ( item_str.startsWith("html:")){
+				new_item = document.createElement("span");
+				new_item.innerHTML = item_str.substr(5);
+			}else if ( item_str.startsWith("embed:")){
+				new_item = document.createElement("embed");
+				new_item.setAttribute("src", item_str.substr(6));
+				new_item.style.width = "100%";
+				new_item.style.height = "80vh";
+			}else return;
+			
+			document.getElementById('id_body_div').appendChild(new_item);
+		}
+		
+		function on_add_item_to_list(){			
+			let s_title = document.getElementById('id_dropped_title').value.trim();
+			if ( s_title.length <= 0 ){
+				show_message("Error: empty title !!!");
+				return;
+			}
+			
+			let s_desc = document.getElementById('id_dropped_description').value.trim();
+			if ( last_dropped_data == null && s_desc.length <= 0 ){
+				show_message("Error: both description and data are empty !!!");
+				return;
+			}
+
+			s_title = s_title.replaceAll('\n', '<br/>');			
+			if ( s_desc.length > 0 )s_desc = s_desc.replaceAll('\n', '<br/>');
+			
+			item_desc[item_title.length] = ( s_desc.length > 0 ? s_desc : null );
+			item_body[item_title.length] = last_dropped_data;
+			item_title[item_title.length] = s_title;
+			
+			last_dropped_data = null;
+			document.getElementById('id_dropped_file').innerHTML = '';
+			document.getElementById('id_dropped_title').value = '';
+			document.getElementById('id_dropped_description').value = '';
+			
+			let lst2 = document.getElementById('id_item_list');
+			let opt2 = document.createElement("option");
+			opt2.innerHTML = s_title;
+			lst2.appendChild(opt2);
+			lst2.selectedIndex = lst2.options.length - 1;
+			on_list_selection_changed();
+			
+			show_message("Item added successfully.");
+		}
+
+		function on_remove_current_item(){
+			let p = document.getElementById('id_item_list').selectedIndex;
+			if ( p <= 0 )return;
+			
+			p--;
+			item_title.splice(p,1);
+			item_desc.splice(p,1);
+			item_body.splice(p,1);
+			
+			document.getElementById('id_item_list').remove(p+1);
+			on_list_selection_changed();
+		}
+		
+		function on_clear_inputs(){
+			document.getElementById('id_dropped_title').value = '';
+			document.getElementById('id_dropped_description').value = '';
+			document.getElementById('id_uconv').checked = "checked";
+			document.getElementById('id_dropped_file').innerHTML = '';
+		}
+		
+		function on_force_download(data, filename, type) {
+			var file = new Blob([data], {type: type});
+			if ( window.navigator.msSaveOrOpenBlob ){ // IE10+
+				window.navigator.msSaveOrOpenBlob(file, filename); 
+				return;
+			}
+			
+			var a = document.createElement("a"), url = URL.createObjectURL(file);
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			setTimeout(function() {
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);  
+			}, 0);
+		}		
+		
+		function get_source_code(){
+			let spwd1 = document.getElementById('id_login_pwd').value;
+			let spwd2 = document.getElementById('id_export_pwd').value;
+						
+			document.getElementById('id_login_pwd').value = '';
+			document.getElementById('id_export_pwd').value = '';
+			document.getElementById('id_dropped_title').value = '';
+			document.getElementById('id_dropped_description').value = '';
+			document.getElementById('id_uconv').checked = "checked";
+			document.getElementById('id_login_msg').innerHTML = '';
+			document.getElementById('id_status').innerHTML = '';			
+			document.getElementById('id_body_div').innerHTML = '';			
+			document.getElementById('id_dropped_file').innerHTML = '';
+			
+			let lst2 = document.getElementById('id_item_list');
+			for ( var i = lst2.options.length - 1; i >= 1; i-- )lst2.remove(i);
+			
+			let s_html = document.documentElement.innerHTML;
+			
+			document.getElementById('id_login_pwd').value = spwd1;
+			document.getElementById('id_export_pwd').value = spwd2;
+			
+			lst2.selectedIndex = 0;
+			for ( var i = 0; i < item_title.length; i++ ){
+				let opt2 = document.createElement("option");
+				opt2.innerHTML = item_title[i];
+				lst2.appendChild(opt2);
+			}
+			
+			return s_html;
+		}
+		
+		async function on_export_as_html(){
+			if ( item_title.length <= 0 ){
+				show_message("");
+				document.getElementById('id_body_div').innerHTML = '<b><br/><br/><br/>Error: cannot export html !!!<br/><br/>There is no file in list !!!</b>';
+				return;
+			}
+			
+			let spwd = document.getElementById('id_export_pwd').value.trim();
+			
+			let ss1 = '[', ss2 = '[', ss3 = '[';
+			for ( var i = 0; i < item_title.length; i++ ){
+				
+				if ( i > 0 ){ ss1 += ','; ss2 += ','; ss3 += ',';}
+				
+				for ( var j = 0; j < 3; j++ ){
+					let s = '';
+					if ( j == 0 )s = item_title[i];
+					else s = ( j == 1 ? item_desc[i] : item_body[i] );
+					
+					if ( s != null && s.length > 0 ){
+						let s_header = s.substr(0, (s.length > 100 ? 100 : s.length)).toLowerCase();
+						let p = s_header.indexOf(';base64,');
+						if ( p >= 0 )s = s.substr(0,p) + ';setb64,' + parse_base64(s.substr(p+8));
+						if ( spwd.length <= 0 )s = btoa(s);
+						else{
+							s = await crypt_execute('enc.str.ret.b64', s, spwd);
+						}
+					}else s = null;
+					
+					if ( j == 0 )ss1 += ( s == null ? 'null' : ('"' + s + '"'));
+					else if ( j == 1 )ss2 += ( s == null ? 'null' : ('"' + s + '"'));
+					else ss3 += ( s == null ? 'null' : ('"' + s + '"'));
+				}
+			}
+			
+			ss1 += '];';
+			ss2 += '];';
+			ss3 += '];';
+
+			let sphsh = '';
+			if ( spwd.length > 0 ){
+				sphsh = await crypt_execute('enc.str.ret.b64', 'abcd' + Math.random() + '00000', spwd);
+			}
+
+			let s = get_source_code();
+			
+			let p1 = s.indexOf(mrkrst), p2 = s.lastIndexOf(mrkren);
+			for ( ; p2 > 0; p2-- )if ( s.charAt(p2) == '\n' )break;			
+			
+			let s_html = '<!DOCTYPE html>\n<html>\n';
+			s_html += s.substr(0, p1 + mrkrst.length + 2);
+			s_html += '\n\t\tlet global_recursion_depth = ' + parseInt(global_recursion_depth+1) + ';\n';
+			s_html += '\n\t\tlet pwd_hash = \"' + sphsh + '\";\n';
+			s_html += '\t\tlet item_title = ' + ss1 + '\n';
+			s_html += '\t\tlet item_desc = ' + ss2 + '\n';
+			s_html += '\t\tlet item_body = ' + ss3 + '\n';
+			s_html += s.substr(p2);
+			s_html += '\n</body>\n</html>';
+			
+			let self_name = 'test.html';
+			try{
+				self_name = window.location.pathname.split("/").pop();
+			}catch(e){self_name = 'test.html';}
+			
+			on_force_download(s_html, self_name, 'text');
+		}
+
+		async function on_login_click(){
+			let spwd = document.getElementById('id_login_pwd').value.trim();
+			if ( spwd.length <= 0 ){
+				document.getElementById('id_login_msg').innerHTML = "Empty password !!!";
+				return;
+			}
+
+			let ss = await crypt_execute('dec.b64.ret.str', pwd_hash, spwd);
+			
+			if ( ss == null || !ss.endsWith('00000')){
+				document.getElementById('id_login_msg').innerHTML = "Wrong password !!!";
+				return;
+			}				
+			
+			for ( var i = 0; i < item_title.length; i++ ){
+				for ( var j = 0; j < 3; j++ ){
+					let s = '';
+					if ( j == 0 )s = item_title[i];
+					else s = ( j == 1 ? item_desc[i] : item_body[i] );
+					
+					if ( s == null || s.length <= 0 )continue;
+					s = await crypt_execute('dec.b64.ret.str', s, spwd);
+					let s_header = s.substr(0, (s.length < 100 ? s.length : 100)).toLowerCase();
+					let p = s_header.indexOf(';setb64,');
+					if ( p >= 0 )s = s.substr(0,p) + ';base64,' + btoa(s.substr(p+8));
+					
+					if ( j == 0 )item_title[i] = s;
+					else if ( j == 1 )item_desc[i] = s;
+					else item_body[i] = s;
+				}
+			}
+			
+			document.getElementById('id_login_pwd').value = '';
+			document.getElementById('id_export_pwd').value = spwd;
+			on_load_complete();
+		}
+		
+		function on_load_complete(){			
+			let lst2 = document.getElementById('id_item_list');
+			
+			for ( var i = 0; i < item_title.length; i++ ){
+				let opt2 = document.createElement("option");
+				opt2.innerHTML = item_title[i];
+				lst2.appendChild(opt2);
+			}
+			
+			document.getElementById('id_login_div').style.display = "none";
+			document.getElementById('id_main_div').style.display = "inline-block";
+		}
+		
+		window.onload = function() {			
+			if ( pwd_hash.length > 0 ){
+				document.getElementById('id_login_div').style.display = "inline-block";
+				document.getElementById('id_main_div').style.display = "none";
+				return;
+			}
+			
+			for ( var i = 0; i < item_title.length; i++ ){
+				for ( var j = 0; j < 3; j++ ){
+					let s = '';
+					if ( j == 0 )s = item_title[i];
+					else s = ( j == 1 ? item_desc[i] : item_body[i] );
+					
+					if ( s == null )continue;
+					s = parse_base64(s);
+
+					let s_header = s.substr(0, (s.length < 100 ? s.length : 100)).toLowerCase();
+					let p = s_header.indexOf(';setb64,');
+					if ( p >= 0 )s = s.substr(0,p) + ';base64,' + btoa(s.substr(p+8));
+					
+					if ( j == 0 )item_title[i] = s;
+					else if ( j == 1 )item_desc[i] = s;
+					else item_body[i] = s;					
+				}
+			}
+			on_load_complete();
+		}
+		
+	</script>
+</head>
+
+<body>
+<div id='id_login_div' style="display:none;margin-left:20%;">
+	<br/><br/>
+	<label id='id_login_msg'></label><br/><br/>
+	<u><b>Enter encryption-key (password) for this file</b></u><br/><br/>
+	<input type="text" id='id_login_pwd' value=""/>
+	<input type="button" onclick="on_login_click();" value="View files"/>
+</div>
+
+<div id='id_main_div' style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;" >
+<div id='id_left_div' style="display:inline-block;width:80%;height:100%;overflow:auto-scroll;float:left;">
+	<br/>File list: <select id='id_item_list' onchange='on_list_selection_changed();' style="min-width:30%;"><option>None</option></select><br/>	
+	<div id='id_body_div' style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;"></div>
+</div>
+
+<div id='id_right_div' style="display:inline-block;width:20%;height:100%;overflow:auto-scroll;float:right;" ondrop="drop(event)" ondragover="allowDrop(event)">
+	<label id='id_status'></label><br/>
+	Encryption key (password)<br/>
+	<input type="text" id='id_export_pwd'/><input type="button" onclick="on_export_as_html();" value="Save files"/><br/><br/>
+	<input type="button" value="Remove current from list" onclick="on_remove_current_item();"/><br/><br/><br/>
+	<u>Add new file to list</u><br/>
+	<input type="file" onchange="on_choose_file(event);"><br/><br/>	
+	<input id='id_uconv' type="checkbox" checked="checked">Apply unicode conversion on dropped text/html file</input><br/><br/>
+	Drag and drop image/text here... <br/><br/>
+	Title: <input type='text' id='id_dropped_title' style="width:100%;" value=""/><br/><br/>    
+	Description:<br/>
+	<textarea id='id_dropped_description' style="width:100%;height:60px;"></textarea><br/>		
+	<span id='id_dropped_file' style="width:100%;"></span><br/>	
+	<input type="button" onclick="on_add_item_to_list()" value="Add to list"/>&nbsp;&nbsp;&nbsp;&nbsp;	
+	<input type="button" onclick="on_clear_inputs();" value="Clear inputs"/><br/><br/><br/>
+	<input type="button" onclick="crypto_performance_test();" value="Crypto performance test"/><br/>
+</div>
+</div>
+
+</body>
+</html>
