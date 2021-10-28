@@ -97,6 +97,7 @@
 		}		
 				
 		async function crypto_performance_test(){
+			show_message('');
 			let sz = 1000000;
 			let bb = new Uint8Array(sz);
 			if ( crypt_performance_test_no == 0 ){
@@ -171,9 +172,10 @@
 		
 		function on_choose_file(ev){
 			if (!ev.target.files[0]){
-				console.log('event target empty !!!');
+				show_message('event target empty !!!');
 				return;
 			}
+			show_message('');
 			
 			let fl = ev.target.files[0];
 			let sname = fl.name;
@@ -187,7 +189,12 @@
 		}
 		
 		function handle_dropped_file(str){
-			if ( str.length <= 0 )return;			
+			if ( str.length <= 0 ){
+				show_message('No data found in file !!!');
+				return;
+			}
+			show_message('');
+			
 			let is_uni_conv = ( document.getElementById('id_uconv').checked ? 1 : 0 );			
 			let s_header = str.substr(0, (str.length < 100 ? str.length : 100)).trim().toLowerCase();
 			
@@ -226,11 +233,12 @@
 		}
 		
 		function on_list_selection_changed(){
+			show_message('');
 			let fno = document.getElementById('id_item_list').selectedIndex;
 			if ( fno <= 0 ){
 				document.getElementById('id_body_div').innerHTML = 'No item selected !!!';
 				return;
-			}
+			}					
 			
 			fno--;
 			let s = '';
@@ -298,8 +306,11 @@
 
 		function on_remove_current_item(){
 			let p = document.getElementById('id_item_list').selectedIndex;
-			if ( p <= 0 )return;
-			
+			if ( p <= 0 ){
+				show_message('No file selected. Select a file from the list, and then remove that from current vault !!!');
+				return;
+			}			
+	
 			p--;
 			item_title.splice(p,1);
 			item_desc.splice(p,1);
@@ -310,10 +321,21 @@
 		}
 		
 		function on_clear_inputs(){
+			show_message('');
 			document.getElementById('id_dropped_title').value = '';
 			document.getElementById('id_dropped_description').value = '';
 			document.getElementById('id_uconv').checked = "checked";
 			document.getElementById('id_dropped_file').innerHTML = '';
+		}
+		
+		function on_show_random_file(){
+			if ( item_title.length <= 0 ){
+				show_message("There is no file in the vault !!!");
+				return;
+			}						
+			
+			document.getElementById('id_item_list').selectedIndex = 1 + parseInt(Math.random() * 100000) % item_title.length;
+			on_list_selection_changed();
 		}
 		
 		function on_force_download(data, filename, type) {
@@ -368,11 +390,11 @@
 		
 		async function on_export_as_html(){
 			if ( item_title.length <= 0 ){
-				show_message("");
-				document.getElementById('id_body_div').innerHTML = '<b><br/><br/><br/>Error: cannot export html !!!<br/><br/>There is no file in list !!!</b>';
+				show_message("<b><br/><br/><br/>Error: cannot export html !!!<br/><br/>There is no file in list !!!</b>");
 				return;
 			}
 			
+			show_message('');
 			let spwd = document.getElementById('id_export_pwd').value.trim();
 			
 			let ss1 = '[', ss2 = '[', ss3 = '[';
@@ -386,10 +408,12 @@
 					else s = ( j == 1 ? item_desc[i] : item_body[i] );
 					
 					if ( s != null && s.length > 0 ){
+						if ( j == 0 || j == 1 )s = unescape(encodeURIComponent(s));	// xxxx unicode title/description
+						
 						let s_header = s.substr(0, (s.length > 100 ? 100 : s.length)).toLowerCase();
 						let p = s_header.indexOf(';base64,');
 						if ( p >= 0 )s = s.substr(0,p) + ';setb64,' + parse_base64(s.substr(p+8));
-						if ( spwd.length <= 0 )s = btoa(s);
+						if ( spwd.length <= 0 )s = btoa(s);							
 						else{
 							s = await crypt_execute('enc.str.ret.b64', s, spwd);
 						}
@@ -450,6 +474,7 @@
 					
 					if ( s == null || s.length <= 0 )continue;
 					s = await crypt_execute('dec.b64.ret.str', s, spwd);
+					if ( j == 0 || j == 1 )s = decodeURIComponent(escape(s));	// xxxx unicode title/description
 					let s_header = s.substr(0, (s.length < 100 ? s.length : 100)).toLowerCase();
 					let p = s_header.indexOf(';setb64,');
 					if ( p >= 0 )s = s.substr(0,p) + ';base64,' + btoa(s.substr(p+8));
@@ -478,7 +503,7 @@
 			document.getElementById('id_main_div').style.display = "inline-block";
 		}
 		
-		window.onload = function() {			
+		window.onload = function() {
 			if ( pwd_hash.length > 0 ){
 				document.getElementById('id_login_div').style.display = "inline-block";
 				document.getElementById('id_main_div').style.display = "none";
@@ -491,8 +516,9 @@
 					if ( j == 0 )s = item_title[i];
 					else s = ( j == 1 ? item_desc[i] : item_body[i] );
 					
-					if ( s == null )continue;
+					if ( s == null )continue;					
 					s = parse_base64(s);
+					if ( j == 0 || j == 1 )s = decodeURIComponent(escape(s));	// xxxx unicode title/description
 
 					let s_header = s.substr(0, (s.length < 100 ? s.length : 100)).toLowerCase();
 					let p = s_header.indexOf(';setb64,');
@@ -520,12 +546,13 @@
 
 <div id='id_main_div' style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;" >
 <div id='id_left_div' style="display:inline-block;width:80%;height:100%;overflow:auto-scroll;float:left;">
-	<br/>File list: <select id='id_item_list' onchange='on_list_selection_changed();' style="min-width:30%;"><option>None</option></select><br/>	
+	<br/>File list: <select id='id_item_list' onchange='on_list_selection_changed();' style="min-width:30%;"><option>None</option></select>&nbsp;&nbsp;&nbsp;&nbsp;
+	<input type="button" onclick="on_show_random_file();" value="Random"/><br/><br/>
+	<label id='id_status' style="color:red;"></label><br/>
 	<div id='id_body_div' style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;"></div>
 </div>
 
-<div id='id_right_div' style="display:inline-block;width:20%;height:100%;overflow:auto-scroll;float:right;" ondrop="drop(event)" ondragover="allowDrop(event)">
-	<label id='id_status'></label><br/>
+<div id='id_right_div' style="display:inline-block;width:20%;height:100%;overflow:auto-scroll;float:right;" ondrop="drop(event)" ondragover="allowDrop(event)">	
 	Encryption key (password)<br/>
 	<input type="text" id='id_export_pwd'/><input type="button" onclick="on_export_as_html();" value="Export html"/><br/><br/>
 	<input type="button" value="Remove current from list" onclick="on_remove_current_item();"/><br/><br/><br/>
