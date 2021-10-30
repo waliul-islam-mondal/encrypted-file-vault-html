@@ -20,14 +20,13 @@
 		let crypt_performance_test_no = 0;
 		
 		let mrkrst = 'marker-st';
-		
-		let global_recursion_depth = 0;
-		let pwd_hash = '';
-				
-		let item_title = [];
-		let item_desc = [];
-		let item_body = [];
-		
+		let global_recursion_depth = 1;
+
+		let pwd_hash = "";
+		let item_title = ["SG93IFRvIFVzZS50eHQ=","c2VjdXJpdHkucG5n"];
+		let item_desc = ["MS4gRHJhZyBhbmQgZHJvcCBhbnkgdGV4dC9pbWFnZSBmaWxlIG9uIHRoZSByaWdodCBzaWRlIG9mIHRoaXMgcGFnZS48YnIvPiAgIE9yLCBjbGljayBvbiAnQ2hvb3NlIEZpbGUnIGJ1dHRvbiBhbmQgYWRkIHlvdXIgZmlsZS48YnIvPiAgIE9yLCB3cml0ZSB5b3VyIG93biB0ZXh0IGluIHRpdGxlIGFuZCBkZXNjcmlwdGlvbiBmaWVsZC48YnIvPiAgIDxici8+Mi4gVGhlbiwgY2xpY2sgJ0FkZCB0byBMaXN0Jy48YnIvPjMuIEFmdGVyIGFkZGluZyBtYW55IGZpbGVzLCBjbGljayAnRXhwb3J0IGh0bWwnLjxici8+ICAgVGhlbiwgYWxsIG9mIHlvdXIgZmlsZXMgd2lsbCBiZSBidW5kbGVkIGluIGEgc2luZ2xlIGh0bWwgZmlsZS48YnIvPiAgIDxici8+NC4gSWYgeW91IHdhbnQgdG8gZW5jcnlwdCB5b3VyIGV4cG9ydGVkIGh0bWwgZmlsZSwgc2V0ICdFbmNyeXB0aW9uIEtleScgZmllbGQuIFRoZW4sIGNsaWNrICdFeHBvcnQgSHRtbCcuPGJyLz48YnIvPjUuIFRoZW4geW91IGNhbiBzdG9yZSBvciBzZW5kIHlvdXIgJ0V4cG9ydGVkIGh0bWwgYnVuZGxlJyBmaWxlIHRvIGFueWJvZHkuPGJyLz4gICBJZiB5b3UgaGF2ZSB1c2VkICdFbmNyeXB0aW9uIGtleScsIG5vYm9keSBjYW4gb3BlbiB0aGUgaHRtbCBmaWxlIHdpdGhvdXQgeW91ciAnRW5jcnlwdGlvbiBrZXknLjxici8+ICAgPGJyLz42LiBUaGlzIHByb2dyYW0gdXNlcyBicm93c2VyJ3Mgb3duIEFFUyBlbmNyeXB0aW9uL2RlY3J5cHRpb24gaW1wbGVtZW50YXRpb24uPGJyLz43LiBUaGlzIHByb2dyYW0gaGFzIGJlZW4gdGVzdGVkIHdpdGggR29vZ2xlIGNocm9tZSwgRmlyZWZveCBhbmQgc21hcnRwaG9uZSdzIG9wZXJhIG1pbmkgYnJvd3Nlci48YnIvPjxici8+VGhhbmtzLDxici8+d2FsaQ==",null];
+		let item_body = [null,"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"];
+
 		let mrkren = 'marker-end';		
 				
 		function current_time_ms(){
@@ -536,39 +535,41 @@
 </head>
 
 <body>
-<div id='id_login_div' style="display:none;margin-left:20%;">
-	<br/><br/>
-	<label id='id_login_msg'></label><br/><br/>
-	<u><b>Enter encryption-key (password) for this file</b></u><br/><br/>
-	<input type="text" id='id_login_pwd' value=""/>
-	<input type="button" onclick="on_login_click();" value="View files"/>
+<div id="id_login_div" style="display:none;margin-left:20%;">
+	<br><br>
+	<label id="id_login_msg"></label><br><br>
+	<u><b>Enter encryption-key (password) for this file</b></u><br><br>
+	<input type="text" id="id_login_pwd" value="">
+	<input type="button" onclick="on_login_click();" value="View files">
 </div>
 
-<div id='id_main_div' style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;" >
-<div id='id_left_div' style="display:inline-block;width:80%;height:100%;overflow:auto-scroll;float:left;">
-	<br/>File list: <select id='id_item_list' onchange='on_list_selection_changed();' style="min-width:30%;"><option>None</option></select>&nbsp;&nbsp;&nbsp;&nbsp;
-	<input type="button" onclick="on_show_random_file();" value="Random"/><br/><br/>
-	<label id='id_status' style="color:red;"></label><br/>
-	<div id='id_body_div' style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;"></div>
+<div id="id_main_div" style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;">
+<div id="id_left_div" style="display:inline-block;width:80%;height:100%;overflow:auto-scroll;float:left;">
+	<br>File list: <select id="id_item_list" onchange="on_list_selection_changed();" style="min-width:30%;"><option>None</option></select>&nbsp;&nbsp;&nbsp;&nbsp;
+	<input type="button" onclick="on_show_random_file();" value="Random"><br><br>
+	<label id="id_status" style="color:red;"></label><br>
+	<div id="id_body_div" style="display:inline-block;width:100%;height:100%;overflow:auto-scroll;"></div>
 </div>
 
-<div id='id_right_div' style="display:inline-block;width:20%;height:100%;overflow:auto-scroll;float:right;" ondrop="drop(event)" ondragover="allowDrop(event)">	
-	Encryption key (password)<br/>
-	<input type="text" id='id_export_pwd'/><input type="button" onclick="on_export_as_html();" value="Export html"/><br/><br/>
-	<input type="button" value="Remove current from list" onclick="on_remove_current_item();"/><br/><br/><br/>
-	<u>Add new file to list</u><br/>
-	<input type="file" onchange="on_choose_file(event);"><br/><br/>	
-	<input id='id_uconv' type="checkbox" checked="checked">Apply unicode conversion on dropped text/html file</input><br/><br/>
-	Drag and drop image/text here... <br/><br/>
-	Title: <input type='text' id='id_dropped_title' style="width:100%;" value=""/><br/><br/>    
-	Description:<br/>
-	<textarea id='id_dropped_description' style="width:100%;height:60px;"></textarea><br/>		
-	<span id='id_dropped_file' style="width:100%;"></span><br/>	
-	<input type="button" onclick="on_add_item_to_list()" value="Add to list"/>&nbsp;&nbsp;&nbsp;&nbsp;	
-	<input type="button" onclick="on_clear_inputs();" value="Clear inputs"/><br/><br/><br/>
-	<input type="button" onclick="crypto_performance_test();" value="Crypto performance test"/><br/>
+<div id="id_right_div" style="display:inline-block;width:20%;height:100%;overflow:auto-scroll;float:right;" ondrop="drop(event)" ondragover="allowDrop(event)">	
+	Encryption key (password)<br>
+	<input type="text" id="id_export_pwd"><input type="button" onclick="on_export_as_html();" value="Export html"><br><br>
+	<input type="button" value="Remove current from list" onclick="on_remove_current_item();"><br><br><br>
+	<u>Add new file to list</u><br>
+	<input type="file" onchange="on_choose_file(event);"><br><br>	
+	<input id="id_uconv" type="checkbox" checked="checked">Apply unicode conversion on dropped text/html file<br><br>
+	Drag and drop image/text here... <br><br>
+	Title: <input type="text" id="id_dropped_title" style="width:100%;" value=""><br><br>    
+	Description:<br>
+	<textarea id="id_dropped_description" style="width:100%;height:60px;"></textarea><br>		
+	<span id="id_dropped_file" style="width:100%;"></span><br>	
+	<input type="button" onclick="on_add_item_to_list()" value="Add to list">&nbsp;&nbsp;&nbsp;&nbsp;	
+	<input type="button" onclick="on_clear_inputs();" value="Clear inputs"><br><br><br>
+	<input type="button" onclick="crypto_performance_test();" value="Crypto performance test"><br>
 </div>
 </div>
 
+
+</body>
 </body>
 </html>
